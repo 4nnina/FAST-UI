@@ -262,8 +262,8 @@ def set_table_default_NOT(id_usr):
 def run_optimization():
     try:
         base_dir = os.path.join(os.getcwd())
-        output_dir = os.path.join(base_dir,'..','..', "university_schedules")
-        main_script_path = os.path.join(base_dir,'..','..', "src", "main.py")
+        output_dir = os.path.join(base_dir,'..', "university_schedules_stats")
+        main_script_path = os.path.join(base_dir,'..', "src", "main.py")
         
         if os.path.exists(output_dir):
             shutil.rmtree(output_dir)
@@ -311,7 +311,7 @@ def run_optimization():
 def get_json_files():
 
     base_dir = os.path.join(os.getcwd())
-    output_dir = os.path.join(base_dir,'..','..',"university_schedules")
+    output_dir = os.path.join(base_dir,'..',"university_schedules_stats")
     files = sorted(glob.glob(os.path.join(output_dir, 'fairness_data_*.json')))
     
     result = []
@@ -332,7 +332,7 @@ def get_json_files():
 @app.route('/check_new_files', methods=['GET'])
 def check_new_files():
     base_dir = os.path.join(os.getcwd())
-    output_dir = os.path.join(base_dir,'..','..', "university_schedules")
+    output_dir = os.path.join(base_dir,'..', "university_schedules_stats")
     files = sorted(glob.glob(os.path.join(output_dir, 'fairness_data_*.json')))
 
     result = []
