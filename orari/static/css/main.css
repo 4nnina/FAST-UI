@@ -1,0 +1,80 @@
+.login-box{
+    margin: auto;
+    margin-top: 18%;
+    width: 30%;
+}
+
+.login-field{
+    padding: 10px;
+}
+
+.h1{
+    font-weight: bolder;
+}
+
+.login-header{
+    font-size: larger;
+    font-weight: bold;
+}
+
+.center-el{
+    margin-top: 3%;
+    text-align: center;
+    margin: auto;
+    margin-top: 3%;
+}
+
+.td{
+    height: 50px;
+    overflow:hidden;
+}
+
+.index-box{
+    margin: auto;
+    width: 70%;
+    margin-top: 2%;
+}
+
+.admin-box{
+    margin: auto;
+    width: 70%;
+    margin-top: 6%;
+}
+
+.button{
+    margin-top: 2%;
+    margin-bottom: 2%;
+}
+
+.table{
+    margin: auto;
+    width: 80%;
+    margin-top: 5%;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 15px 2px rgba(0, 0, 0, 0.19);
+}
+
+.table-users-edit{
+    margin: auto;
+    width: 70%;
+    margin-top: 5%;
+    box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 15px 2px rgba(0, 0, 0, 0.19);
+}
+
+.popup-mex{    
+    width: 20%;
+    height: 15%;
+    top: 40%;
+    left: 40%;
+    z-index: 1000;
+    opacity: 0.9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    visibility: hidden;
+    text-align: center;
+}
+
+.notification-equal {
+    height: 100%;
+}

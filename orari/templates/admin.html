@@ -1,0 +1,680 @@
+{% extends 'base.html' %}
+
+{% block title %} 
+<title>Administrator</title>
+{% endblock %}
+{% block body %}
+<div class="box admin-box center-el">
+    <div id="popup-danger" class="notification popup-mex is-warning">
+        <button class="delete" onclick="nascondiElemento(this.parentNode)"></button>
+        <p>These changes will permanently erase the preferences of the selected users</p>
+        <p>Are you sure you want to proceed?</p>
+        <button class="button is-danger" onclick="">Proceed</button>
+    </div>
+    <div id="popup-succ" class="notification popup-mex">
+        <button class="delete" onclick="nascondiElemento(this.parentNode)"></button>
+        <p>User successfully deleted!</p>
+    </div>
+    <div id="popup-err" class="notification popup-mex is-danger">
+        <button class="delete" onclick="nascondiElemento(this.parentNode)"></button>
+        <p>Ops! Something went wrong :/</p>
+    </div>
+
+    <div class="center-el login-header">
+        <h1 class="is-size-3" id="titolo">Welcome, {{session['username']}}!</h1>
+    </div>
+    <div class="center-el" id="main-table">
+        <div class="table-container" style="overflow-y: auto; max-height: 600px;">
+            <form id="user-form" method="POST" action="{{ url_for('delete_users') }}">
+                <table class = "table admin-box is-striped is-bordered">
+                    <tr>
+                        <th>Selected</th>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Max Undesired</th>
+                        <th>Max Impossible</th>
+                    </tr>
+                    {% for user in users %}
+                    {% if user[0] != 0 %}
+                    <tr>
+                        <td><input type="checkbox" name="user_ids" value="{{ user[0] }}"></td>
+                        <td>{{ user[0] }}</td>
+                        <td>{{ user[1] }}</td>
+                        <td>{{ user[4] }}</td>
+                        <td>{{ user[3] }}</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </table>
+            </form><br>
+        </div>
+        
+        <button type="button" class="button is-primary" id="show-selected" onclick="showSelectedUsers()">Edit Selected Users</button>
+        <button type="button" class="button is-primary" id="delete-users" onclick="deleteSelectedUsers()">Delete Selected Users</button>
+        <button type="button" class="button is-primary" id="show-preferences" onclick="showPreferences()">All Users' Prefs.</button>
+        <button type="button" class="button is-primary" id="show-schedules" onclick="showSchedules()">Selected Users' Prefs.</button>
+        <button type="button" class="button is-warning" id="show-calculation" onclick="showCalculation()">Perform Calculation</button>
+        <a href="{{url_for('logout')}}" class="button is-danger">Logout</a>
+    </div>
+    
+    <div class="center-el" id="users-table-container" style="display:none;">
+        <div class="table-container" style="overflow-y: auto; max-height: 600px;">
+            <table class="table index-box is-bordered is-striped">
+                <thead>
+                    <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Max Undesired</th>
+                    <th>Max Impossible</th>
+                    </tr>
+                </thead>
+                <tbody id="selected-users-body"> </tbody>
+            </table>
+        </div>
+        <button type="button" class="button is-primary" onclick="updateUsersValues()">Update Values</button>
+        <button type="button" class="button is-warning" onclick="goBack()">Back</button>
+    </div>
+
+    <div class="center-el" id="users-preference-container" style="display: none;">
+        <div class="table-container" style="overflow-y: auto; max-height: 600px;">
+          <table class="table index-box is-bordered is-striped">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Day</th>
+                <th>Start time</th>
+                <th>End time</th>
+                <th>Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for slots in slot %}
+              <tr>
+                <td>{{ slots[0] }}</td>
+                <td>{{ slots[1] }}</td>
+                <td>{{ slots[2] }}</td>
+                <td>{{ slots[3] }}</td>
+                <td>{{ slots[4] }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="center-el">
+              <p class="has-text-weight-bold">IMPORTANT NOTE</p>
+              <p class="has-text-weight-bold">"not": the user specified a "Better Not" type preference"</p>
+              <p class="has-text-weight-bold">"NOT": the user specified an "Impossible" type preference</p>
+          </div>
+        </div>
+        <button type="button" class="button is-primary" onclick ="downloadCSV()">Export User Preferences</button>
+        <button type="button" class="button is-warning" onclick="goBack()">Go back</button>
+      </div>
+
+      <div class="center-el" id="users-schedules-container" style="display:none;">
+        <div class="table-container" style="overflow-y: auto; max-height: 600px;">
+        </div>
+        <button type="button" class="button is-warning" onclick="goBack()">Go back</button>
+    </div>
+
+    <div class="center-el" id="perform-calculation-container" style="display:none;">
+        <div id="json-data-container"></div>
+        <button type="button" class="button is-warning" onclick="goBack()">Go back</button>
+    </div>
+</div>
+
+<script>
+
+    function showCalculation() {    
+        document.getElementById('main-table').style.display = "none";
+        document.getElementById('users-table-container').style.display = "none";
+        document.getElementById('users-preference-container').style.display = "none";
+        document.getElementById('users-schedules-container').style.display = "none";
+        document.getElementById('perform-calculation-container').style.display = "block";
+        
+        document.getElementById('titolo').innerHTML = `
+            <div style="text-align: center;">
+                <h1 class="title is-3">Perform Calculation</h1>
+                <p class="subtitle is-5" id="iteration-number-display"></p>
+            </div>
+        `;
+
+        const container = document.getElementById('perform-calculation-container');
+        container.innerHTML = `
+            <div id="calculation-output">
+                <div id="json-results-container"></div>
+            </div>
+            <div class="has-text-centered" style="margin-top: 2rem;">
+                <button type="button" class="button is-primary" id="optimization-button" onclick="runOptimization()">Run Optimization</button>
+                <button type="button" class="button is-warning" onclick="goBack()">Go back</button>
+            </div>
+        `;
+
+        if (sessionStorage.getItem('optimizationInProgress') === 'true') {
+            const button = document.getElementById('optimization-button');
+            button.disabled = true;
+            button.classList.add('is-loading');
+            button.textContent = 'Optimization in progress...';
+            startFilePolling();
+        }
+    }
+
+    let pollingInterval;
+
+    function runOptimization() {
+        const button = document.getElementById('optimization-button');
+        button.disabled = true;
+        button.classList.add('is-loading');
+        button.textContent = 'Optimization in progress...';
+        
+        sessionStorage.setItem('optimizationInProgress', 'true');
+        
+        const outputDiv = document.getElementById('calculation-output');
+        outputDiv.innerHTML = '<div id="json-results-container"></div>';
+        
+        startFilePolling();
+        
+        fetch('/run_optimization', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                setTimeout(() => {
+                    clearInterval(pollingInterval);
+                    console.log("Polling stopped after successful completion");
+                    resetOptimizationButton();
+                }, 5000);
+            } else {
+                clearInterval(pollingInterval);
+                resetOptimizationButton();
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'has-text-danger';
+                errorDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+                document.getElementById('calculation-output').prepend(errorDiv);
+            }
+        })
+        .catch(error => {
+            clearInterval(pollingInterval); 
+            resetOptimizationButton();
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'has-text-danger';
+            errorDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            document.getElementById('calculation-output').prepend(errorDiv);
+        });
+    }
+
+function resetOptimizationButton() {
+    const button = document.getElementById('optimization-button');
+    button.disabled = false;
+    button.classList.remove('is-loading');
+    button.textContent = 'Run Optimization';
+    sessionStorage.removeItem('optimizationInProgress');
+}
+
+    function startFilePolling() {
+        const container = document.getElementById('json-results-container');
+        container.innerHTML = '<div class="notification is-info">Waiting for results...</div>';
+        
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+        
+        pollingInterval = setInterval(checkForNewFiles, 1000);
+        
+        setTimeout(() => {
+            clearInterval(pollingInterval);
+            resetOptimizationButton();
+            
+            if (document.getElementById('json-results-container').innerHTML.includes('Waiting for results')) {
+                container.innerHTML = '<div class="notification is-warning">No results were generated within the timeout period</div>';
+            }
+        }, 600000);
+    }
+
+    function checkForNewFiles() {
+        fetch('/check_new_files')
+        .then(response => response.json())
+        .then(files => {
+            if (files.length > 0) {
+                fetchAndDisplayFiles(files.map(f => f.filename));
+                
+                clearTimeout(window.pollingStopTimer);
+                window.pollingStopTimer = setTimeout(() => {
+                    clearInterval(pollingInterval);
+                    console.log("Polling stopped - no new files detected");
+                }, 5000);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking files:', error);
+            clearInterval(pollingInterval);
+            document.getElementById('json-results-container').innerHTML = `
+                <div class="notification is-danger">
+                    Error checking for new files: ${error.message}
+                </div>
+            `;
+        });
+    }
+
+    function fetchAndDisplayFiles(filenames) {
+        fetch('/get_json_files')
+        .then(response => response.json())
+        .then(files => {
+            const container = document.getElementById('json-results-container');
+            container.innerHTML = '';
+            
+            if (files.length === 0) {
+                container.innerHTML = '<div class="notification is-info">No results available yet</div>';
+                return;
+            }
+
+            const file = files[files.length - 1];
+            const data = file.content;
+            const iterationNumber = parseInt(file.filename.match(/\d+/)?.[0] || files.length);
+            
+            const fairnessLessThan100 = data["Fairness < 100%"];
+            const totalProfessors = data.professors.length;
+            const worstFairness = data["Worst Percentage"];
+            
+            const fairnessScores = [
+                data.degrees["Fairness Score year 1 Bio"],
+                data.degrees["Fairness Score year 2 Bio"],
+                data.degrees["Fairness Score year 3 Bio"],
+                data.degrees["Fairness Score year 1 Inf"],
+                data.degrees["Fairness Score year 2 Inf"],
+                data.degrees["Fairness Score year 3 Inf"],
+                data.degrees["Fairness Score year 1 BioInf"],
+                data.degrees["Fairness Score year 2 BioInf"],
+                data.degrees["Fairness Score year 3 BioInf"]
+            ];
+            
+            const totalFairnessScore = fairnessScores.reduce((sum, score) => sum + score, 0);
+            const averageFairnessScore = (totalFairnessScore / 9).toFixed(2);
+            
+            let arrowColor = "red";
+            if (worstFairness > 33 && worstFairness <= 66) {
+                arrowColor = "orange";
+            } else if (worstFairness > 66) {
+                arrowColor = "green";
+            }
+            
+            const getCellStyle = (value) => {
+                const opacity = 0.15;
+                if (value < -1000) {
+                    return `background-color: rgba(255, 165, 0, ${opacity});`;
+                } else {
+                    return `background-color: rgba(144, 238, 144, ${opacity});`;
+                }
+            };
+
+            container.innerHTML = `
+                <div class="box">
+                    <h3 class="title is-4 has-text-centered">Optimization Results</h3>
+                    <p class="has-text-centered is-size-5" style="margin-bottom: 2rem;">Iteration number ${iterationNumber}</p>
+                    
+                    <div class="columns is-flex is-align-items-stretch">
+                        <div class="column">
+                            <div class="notification is-light notification-equal">
+                                <p class="title is-5">Professors Fairness</p>
+                                <p>Professors with fairness < 100%: <strong>${fairnessLessThan100}/${totalProfessors}</strong></p>
+                                <p>Worst Fairness: <strong>${worstFairness}%</strong></p>
+                            </div>
+                        </div>
+                        
+                        <div class="column">
+                            <div class="notification is-light notification-equal">
+                                <p class="title is-5">Student class Fairness</p>
+                                <p>Average class fairness: <strong>${averageFairnessScore}</strong></p>
+                                <p></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="columns">
+                        <div class="column">
+                            <div class="notification is-light">
+                                <p class="title is-5">Global Fairness</p>
+                                <p><strong>${data.final_fairness.toFixed(2)}</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="has-text-centered" style="margin: 2rem 0;">
+                        <h4 class="title is-5" style="margin-bottom: 1.5rem;">Professor Worst Fairness Indicator</h4> 
+                        <div style="position: relative; width: 100%; height: 40px; max-width: 600px; margin: 10px auto 30px;">
+                            <div style="position: absolute; top: 10px; left: 0; width: 100%; height: 2px; background-color: black;"></div>
+                            <div style="position: absolute; top: 10px; left: 0%; width: 1px; height: 15px; background-color: black;"></div>
+                            <div style="position: absolute; top: 10px; left: 25%; width: 1px; height: 15px; background-color: black;"></div>
+                            <div style="position: absolute; top: 10px; left: 50%; width: 1px; height: 15px; background-color: black;"></div>
+                            <div style="position: absolute; top: 10px; left: 75%; width: 1px; height: 15px; background-color: black;"></div>
+                            <div style="position: absolute; top: 10px; left: 100%; width: 1px; height: 15px; background-color: black;"></div>
+                            <div style="position: absolute; top: 30px; left: 0%; transform: translateX(-50%);">0%</div>
+                            <div style="position: absolute; top: 30px; left: 25%; transform: translateX(-50%);">25%</div>
+                            <div style="position: absolute; top: 30px; left: 50%; transform: translateX(-50%);">50%</div>
+                            <div style="position: absolute; top: 30px; left: 75%; transform: translateX(-50%);">75%</div>
+                            <div style="position: absolute; top: 30px; left: 100%; transform: translateX(-50%);">100%</div>
+                            <div style="position: absolute; top: -15px; left: ${worstFairness}%; transform: translateX(-50%); color: ${arrowColor}; font-size: 20px; z-index: 1;">▼</div>
+                        </div>
+                    </div>
+                    
+                    <h4 class="title is-5 has-text-centered" style="margin-top: 3rem; margin-bottom: -0.5rem;">Fairness by Year and Degree</h4>
+                    <div class="table-container">
+                        <table class="table is-bordered is-striped is-fullwidth">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: center;">Degree</th>
+                                    <th style="text-align: center;">1<sup>st</sup> Year</th>
+                                    <th style="text-align: center;">2<sup>nd</sup> Year</th>
+                                    <th style="text-align: center;">3<sup>rd</sup> Year</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="text-align: center;">Biotechnology</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 1 Bio"])}">${data.degrees["Fairness Score year 1 Bio"].toFixed(2)}</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 2 Bio"])}">${data.degrees["Fairness Score year 2 Bio"].toFixed(2)}</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 3 Bio"])}">${data.degrees["Fairness Score year 3 Bio"].toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: center;">Computer Science</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 1 Inf"])}">${data.degrees["Fairness Score year 1 Inf"].toFixed(2)}</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 2 Inf"])}">${data.degrees["Fairness Score year 2 Inf"].toFixed(2)}</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 3 Inf"])}">${data.degrees["Fairness Score year 3 Inf"].toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="text-align: center;">Bioinformatics</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 1 BioInf"])}">${data.degrees["Fairness Score year 1 BioInf"].toFixed(2)}</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 2 BioInf"])}">${data.degrees["Fairness Score year 2 BioInf"].toFixed(2)}</td>
+                                    <td style="text-align: center; ${getCellStyle(data.degrees["Fairness Score year 3 BioInf"])}">${data.degrees["Fairness Score year 3 BioInf"].toFixed(2)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        })
+        .catch(error => {
+            console.error('Error fetching files:', error);
+            document.getElementById('json-results-container').innerHTML = `
+                <div class="notification is-danger">
+                    Error loading results: ${error.message}
+                </div>
+            `;
+        });
+    }
+
+    function displaySelectedJson() {
+        const selector = document.getElementById('json-file-selector');
+        const selectedFilename = selector.value;
+        const jsonViewer = document.getElementById('json-viewer');
+        
+        if (!selectedFilename) {
+            jsonViewer.innerHTML = '';
+            return;
+        }
+        
+        const selectedFile = window.jsonFiles.find(file => file.filename === selectedFilename);
+        if (selectedFile) {
+            jsonViewer.innerHTML = `
+                <div class="box">
+                    <h4 class="title is-4">${selectedFile.filename}</h4>
+                    <pre style="max-height: 500px; overflow: auto; background: #f5f5f5; padding: 10px; border-radius: 4px;">
+    ${JSON.stringify(selectedFile.content, null, 2)}
+                    </pre>
+                </div>
+            `;
+        }
+    }
+
+    const scheduleData = JSON.parse('{{ schedule | tojson | safe }}');
+
+    function showSchedules() {
+        const selectedUsers = [];
+        
+        document.querySelectorAll('input[name="user_ids"]:checked').forEach((checkbox) => {
+            const row = checkbox.closest('tr');
+            const userId = checkbox.value;
+            const username = row.cells[2].textContent;
+            selectedUsers.push({ userId, username });
+        });
+
+        document.getElementById('main-table').style.display = "none";
+        document.getElementById('users-schedules-container').style.display = "block";
+        document.getElementById('titolo').innerHTML = "Users' Schedules";
+
+        const container = document.getElementById('users-schedules-container').querySelector('.table-container');
+        container.innerHTML = '';
+
+        selectedUsers.forEach(({ userId, username }) => {
+            const userDiv = document.createElement('div');
+            userDiv.classList.add('center-el', 'login-header');
+
+            const userHeading = document.createElement('h1');
+            userHeading.classList.add('is-size-3');
+            userHeading.textContent = `Here is ${username}'s preferences' table`;
+
+            userDiv.appendChild(userHeading);
+            container.appendChild(userDiv);
+
+            const userTable = createPreferenceTable(userId);
+            container.appendChild(userTable);
+
+        });
+    }
+
+    function createPreferenceTable(userId) {
+        const table = document.createElement('table');
+        table.classList.add('table', 'index-box', 'is-striped', 'is-bordered');
+        table.style.userSelect = 'none';
+
+        const headerRow = `
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
+                </tr>
+            </thead>`;
+        table.innerHTML = headerRow;
+
+        const tbody = document.createElement('tbody');
+
+        const hours = ['8:30', '9:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30', '17:30', '18:30'];
+
+        hours.forEach(hour => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${hour}</td>`;
+
+            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].forEach(day => {
+                const cell = document.createElement('td');
+                const slotData = scheduleData[userId]?.[day]?.[hour];
+
+                if (slotData) {
+                    if (slotData.peso === 'NOT') {
+                        cell.style.backgroundColor = 'red';
+                        cell.textContent = 'impossible';
+                    } else if (slotData.peso === 'not') {
+                        cell.style.backgroundColor = 'yellow';
+                        cell.textContent = 'better not';
+                    }
+                } else {
+                    cell.style.backgroundColor = 'lightblue';
+                    cell.textContent = 'available';
+                }
+                row.appendChild(cell);
+            });
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        return table;
+    }
+
+    const slot = JSON.parse('{{ slot_json | safe }}'); 
+    function downloadCSV() {
+        let csvContent = "prof_id,week_day,hour_begin,hour_end,level,note,constraint\n";
+    
+        if (Array.isArray(slot) && slot.length > 0) {
+            slot.forEach((row, index) => {
+                if (Array.isArray(row) && row.length >= 5) {
+                    const constraint = `${row[4]}(${row[1]},[${row[2]}:${row[3]}])`;
+                    
+                    csvContent += `${row[0]},${row[1]},${row[2]},${row[3]},${row[4]},,"${constraint}"\n`;
+                } else {
+                    console.error(`Row ${index} not a valid object:`, row);
+                }
+            });
+        } else {
+            console.error("Slot is undefined or empty");
+        }
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = URL.createObjectURL(blob);
+        link.download = 'constraint_professors.csv';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        fetch('/save_csv', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ csvContent: csvContent })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "OK") {
+                console.log("File saved successfully");
+            } else {
+                console.error("Error saving file:", data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+
+    function showPreferences() {
+        document.getElementById('main-table').style.display = "none";
+        document.getElementById('users-preference-container').style.display = "block";
+        document.getElementById('titolo').innerHTML = "All user preferences";
+    }
+
+    function showSelectedUsers(){
+        const selectedUsers = [];
+        document.querySelectorAll('input[name="user_ids"]:checked').forEach((checkbox) => {
+            const row = checkbox.closest('tr');
+            const userData = {
+                userId: checkbox.value,
+                username: row.cells[2].textContent,
+                maxUndesired: row.cells[3].textContent,
+                maxImpossible: row.cells[4].textContent,
+            };
+            selectedUsers.push(userData);
+        });
+
+        if (selectedUsers.length > 0) {
+            document.getElementById('main-table').style.display = "none";
+            document.getElementById('users-table-container').style.display = "block";
+            document.getElementById('titolo').innerHTML = "Edit selected users";
+
+            const selectedUsersBody = document.getElementById('selected-users-body');
+            selectedUsersBody.innerHTML = '';
+            selectedUsers.forEach(user => {
+                const row = `<tr data-user-id="${user.userId}">
+                                <td>${user.userId}</td>
+                                <td>${user.username}</td>
+                                <td><input type="number" name="maxUndesired" value="${user.maxUndesired}" min="0" max="15"></td>
+                                <td><input type="number" name="maxImpossible" value="${user.maxImpossible}" min="0" max="15"></td>
+                            </tr>`;
+                selectedUsersBody.insertAdjacentHTML('beforeend', row);
+            });
+        }
+    }
+
+    function goBack(){
+            document.getElementById('main-table').style.display = "block";
+            document.getElementById('users-table-container').style.display = "none";
+            document.getElementById('users-preference-container').style.display = "none";
+            document.getElementById('users-schedules-container').style.display = "none";
+            document.getElementById('perform-calculation-container').style.display = "none";
+            document.getElementById('titolo').innerHTML = "Welcome, {{session['username']}}!";
+    }
+
+    function deleteSelectedUsers(){
+        const usersIDs = [];
+        document.querySelectorAll('input[name="user_ids"]:checked').forEach((checkbox) => {
+            usersIDs.push(checkbox.value);
+        });
+
+        let formdata = new FormData();
+        formdata.append("usersIDs", JSON.stringify(usersIDs))
+        console.log(usersIDs)
+        
+        fetch('/delete_users', {
+                method: 'POST',
+                body: formdata
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                } else {
+                    throw new Error('Error while saving');
+                }
+            })
+            .then(data => {
+                mostraElemento(document.getElementById('popup-succ'));
+                console.log(data);
+            })
+            .catch(error => {
+                mostraElemento(document.getElementById('popup-err'));
+                console.error('Errore:', error);
+            });
+    }
+
+    function updateUsersValues(){
+        const updatedUsers = [];
+        document.querySelectorAll('#selected-users-body tr').forEach(row => {
+            const userId = row.getAttribute('data-user-id');
+            const maxUndesired = row.querySelector('input[name="maxUndesired"]').value;
+            const maxImpossible = row.querySelector('input[name="maxImpossible"]').value;
+            
+            updatedUsers.push({
+                id: userId,
+                maxUndesired: maxUndesired,
+                maxImpossible: maxImpossible});
+        });
+
+        console.log(updatedUsers)
+        
+        fetch('/update_users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ users: updatedUsers })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "OK") {
+                location.reload();
+            } else {
+                alert("Error updating data: " + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+    function nascondiElemento(el){
+        el.style.visibility = "hidden";
+    }
+    function mostraElemento(el){
+        el.style.visibility = "visible";
+    }
+</script>
+
+{% endblock %}

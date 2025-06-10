@@ -1,0 +1,37 @@
+{% extends 'base-form.html' %}
+
+{% block title %}
+<title>Login</title>
+{% endblock%}
+
+{% block info %}
+{% if session.get('new_reg') == True %}
+<div class="center-el">
+    <p class="is-size-4 has-text-info">Registration successful!</p>
+</div>
+{% endif %}
+{% endblock %}
+{% block nome %} Login {% endblock%}
+{% block form %}
+<div class="login-field">
+    <div class="field">
+        <label class="label">Username</label>
+        <div class="control">
+        <input  id="username" name="username" class="input" type="text" value="{{session['old_usr']}}" required autocomplete="off"/>
+        </div>
+    </div>
+    <div class="field">
+        <label class="label">Password</label>
+        <div class="control">
+        <input  id="password" name="password" class="input" type="password" placeholder="********" required/>
+        </div>
+    </div>
+</div>
+<div class="center-el">
+    <button type="submit" class="button is-primary center-el has-text-weight-semibold">Enter</button><br>
+    <p>Otherwise, register <a href="{{ url_for('register') }}">here</a></p>
+    {% if session['errore_login'] == True%}
+        <p class="help is-danger center-el is-size-6">The provided username-password combination is incorrect!</p>
+    {% endif %}
+</div>
+{% endblock %}

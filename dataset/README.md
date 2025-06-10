@@ -1,0 +1,1 @@
+The dataset for FaST-MOSA is available at the [Multi-sided Fairness in Sequential Task Assignment](https://github.com/4nnina/fair_seq_task_assignment.git) repository.

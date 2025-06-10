@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+
+{% block title %} 
+<title>Your Schedules</title>
+{% endblock %}
+{% block body %}
+    <div class="box center-el index-box">
+        <div id="popup-succ" class="notification popup-mex">
+            <button class="delete" onclick="nascondiElemento(this.parentNode)"></button>
+            <p>We saved your preferences!</p>
+        </div>
+        <div id="popup-err" class="notification popup-mex is-danger">
+            <button class="delete" onclick="nascondiElemento(this.parentNode)"></button>
+            <p>Well.. something went wrong :/</p>
+        </div>
+        <div class="center-el login-header">
+            <h1 class="is-size-3">Welcome {{session.get('username')}}, here's your schedule!</h1>
+        </div>
+        <table class="center-el">
+            <tbody>
+                <tr>
+                    <td class="has-text-danger has-text-weight-bold">Max. red cells: {{session['maxImp']}},remaining: </td>
+                    <td class="has-text-danger has-text-weight-bold" id="count-red"></td>
+                </tr>
+                <tr>
+                    <td class="has-text-warning has-text-weight-semibold">Max. yellow cells: {{session['maxNot']}}, remaining: </td>
+                    <td class="has-text-warning has-text-weight-semibold" id="count-yellow"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table class="table index-box is-striped is-bordered" id="pref-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
+                    <th>{{day}}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                <!-- Cicliamo prima sugli orari (righe) -->
+                {% for hour in ['8:30', '9:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30', '17:30', '18:30'] %}
+                <td style="pointer-events: none;" class="td">{{ hour }}</td>
+                {% set outer_loop = loop %}
+                <!-- E poi sui giorni (colonne)-->
+                    {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] %}
+                <!-- Coloriamo le celle di gg/hh in base al DB: questi dati sono stati processati da app.py -->
+                        {% set level = schedule[day].get(hour, 'available') %}
+                <!-- 'NOT' : rosso -->
+                        {% if level == 'NOT' %}
+                            <td id = "cella-{{loop.index}}-{{outer_loop.index}}" style="background-color: red; cursor:pointer; user-select: none; " onclick="toggleColor(this)">impossible</td>
+                <!-- 'not' : giallo -->
+                        {% elif level == 'not' %}
+                            <td id = "cella-{{loop.index}}-{{outer_loop.index}}" style="background-color: yellow; cursor:pointer; user-select: none;" onclick="toggleColor(this)">better not</td>
+                <!-- 'available' : azzurro (questo valore è assegnato da app.py, in realtà il DB contiene solo gli slot etichettati con "NOT" e "not")-->    
+                        {% else %}
+                            <td id = "cella-{{loop.index}}-{{outer_loop.index}}" style="background-color: lightblue; cursor:pointer; user-select: none;" onclick="toggleColor(this)">available</td>
+                        {% endif %}
+                    {% endfor%}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" class="button is-primary" onclick="salvaTabella()">Save Preferences</button>
+        <a href="{{url_for('logout')}}" class="button is-primary is-danger">Logout</a>
+    </div>
+        
+    <script>
+        let maxImpossible = parseInt("{{ session.get('maxImp') }}", 10);
+        let maxUndesired = parseInt("{{ session.get('maxNot') }}", 10);
+
+        window.onload = () =>{
+            updateCellsCount('red');
+            updateCellsCount('yellow');
+        }
+        
+        function updateCellsCount(color){
+            let cells = countCells(color);
+            let remainingcells = ((color == 'red') ? (maxImpossible) : maxUndesired) - cells;
+            elID = 'count-'+ color;
+            document.getElementById(elID).innerText = remainingcells;
+        }
+        
+        function countRemainingCells(color){
+            return color == 'red' ? maxImpossible - countCells('red') : maxUndesired - countCells('yellow');
+        }
+
+        function countCells(color) {
+            let cells = document.querySelectorAll('table td');
+            return Array.from(cells).filter(c => c.style.backgroundColor === color).length;
+        }
+
+        function toggleColor(cell, linkedCellId) {
+        let linkedCell = document.getElementById(linkedCellId);
+
+        let redCellCount = countCells('red');
+        let yellowCellCount = countCells('yellow');
+        colore = cell.style.backgroundColor;
+        switch(colore){
+            case 'red':
+                aggiornaCella(cell, 'lightblue');
+                break;
+            case 'yellow':
+                    aggiornaCella(cell, (maxImpossible - redCellCount) >= 1 ? 'red': 'lightblue');
+                break;
+            default:
+                if((maxUndesired - yellowCellCount) >= 1)
+                    aggiornaCella(cell, 'yellow');
+                else
+                    aggiornaCella(cell, (maxImpossible - redCellCount) >= 1 ? 'red' : 'lightblue');
+                break;
+        }
+            
+        updateCellsCount('red');
+        updateCellsCount('yellow');
+        }
+        
+        function aggiornaCella(cell, color){
+            cell.style.backgroundColor = color
+            switch(color){
+                case 'red': 
+                    cell.innerHTML = 'impossible';
+                    break;
+                case 'yellow':
+                    cell.innerHTML = 'better not';
+                    break;
+                default:
+                    cell.innerHTML = 'available';
+                    break;
+            }
+        }
+
+        function salvaTabella(){    
+            let celle = document.querySelectorAll('#pref-table td');
+            let giorni = document.querySelectorAll('#pref-table th');
+
+            let colori_export = [];
+            let orari_export = [];
+            let giorni_export = [];
+            let ctr = 0;
+            
+            celle.forEach((cella)=>{
+                if(ctr > 5) ctr = 0;
+                
+                colore = cella.style.backgroundColor;
+                if(colore === 'red' || colore === 'yellow'){
+                    let orario = cella.parentElement.firstElementChild.innerText;
+                    let label;
+                    
+                    if(colore === 'red') label = 'NOT';
+                    else label = 'not';
+                    
+                    orari_export.push(orario);
+                    colori_export.push(label);
+                    giorni_export.push(giorni[ctr].innerText);
+                }
+                ctr++;
+            });
+            let formdata = new FormData();
+            
+            formdata.append('orari', JSON.stringify(orari_export));
+            formdata.append('prefs', JSON.stringify(colori_export));
+            formdata.append('giorni', JSON.stringify(giorni_export));
+
+            fetch('/save_table', {
+                    method: 'POST',
+                    body: formdata
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    } else {
+                        throw new Error('Error while saving');
+                    }
+                })
+                .then(data => {
+                    mostraElemento(document.getElementById('popup-succ'));
+                    console.log(data);
+                })
+                .catch(error => {
+                    mostraElemento(document.getElementById('popup-err'));
+                    console.error('Errore:', error);
+                });
+        }
+        function nascondiElemento(el){
+            el.style.visibility = "hidden";
+        }
+        function mostraElemento(el){
+            el.style.visibility = "visible";
+        }
+    </script>
+{% endblock %}

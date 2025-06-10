@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}
+{% endblock %}
+
+{% block body %}
+<form class="login-box box" method = "POST">
+    {% block info %} {%endblock%}
+    <div class="login-header center-el">{% block nome %}{% endblock %}</div>
+    {% block form %}
+
+    {% endblock %}
+</form>
+{% endblock %}
